@@ -5,14 +5,15 @@
 package frc.team7520.robot.subsystems.swerve;
 
 import com.pathplanner.lib.auto.AutoBuilder;
-//import com.pathplanner.lib.commands.FollowPathHolonomic;
 import com.pathplanner.lib.commands.PathPlannerAuto;
 import com.pathplanner.lib.config.PIDConstants;
 import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
-//import com.pathplanner.lib.util.HolonomicPathFollowerConfig;
-//import com.pathplanner.lib.util.PIDConstants;
-//import com.pathplanner.lib.util.ReplanningConfig;
+import com.pathplanner.lib.path.GoalEndState;
+import com.pathplanner.lib.path.PathConstraints;
+import com.pathplanner.lib.path.PathPlannerPath;
+import com.pathplanner.lib.path.Waypoint;
+
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
@@ -27,19 +28,12 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import edu.wpi.first.networktables.*;
 import frc.team7520.robot.Constants;
-//import frc.team7520.robot.auto.AutoIntake;
-//import frc.team7520.robot.auto.AutoNotePickUp;
-//import frc.team7520.robot.auto.AutoShoot;
-//import frc.team7520.robot.auto.ShootSequence;
-//import frc.team7520.robot.subsystems.intake.IntakeSubsystem;
 import frc.team7520.robot.util.AprilTagSystem;
 import frc.team7520.robot.util.LimelightHelpers;
 import frc.team7520.robot.util.TpuSystem;
 import swervelib.SwerveController;
 import swervelib.SwerveDrive;
-import swervelib.math.SwerveMath;
 import swervelib.parser.SwerveControllerConfiguration;
 import swervelib.parser.SwerveDriveConfiguration;
 import swervelib.parser.SwerveParser;
@@ -47,11 +41,8 @@ import swervelib.telemetry.SwerveDriveTelemetry;
 import swervelib.telemetry.SwerveDriveTelemetry.TelemetryVerbosity;
 
 import java.io.File;
+import java.util.List;
 import java.util.function.Supplier;
-import static edu.wpi.first.units.Units.Meter;
-
-
-import static frc.team7520.robot.Constants.Telemetry.SWERVE_VERBOSITY;
 
 public class SwerveSubsystem extends SubsystemBase {
 
@@ -89,31 +80,27 @@ public class SwerveSubsystem extends SubsystemBase {
      *
      * @param directory Directory of swerve drive config files.
      */
+    
     public SwerveSubsystem(File directory) {
         // Angle conversion factor is 360 / (GEAR RATIO * ENCODER RESOLUTION)
-        //  The encoder resolution per motor revolution is 1 per motor revolution.
-        
-
+        //  The encoder resolution per motor revolution is 1 per motor revolution.    
         // Configure the Telemetry before creating the SwerveDrive to avoid unnecessary objects being created.
         SwerveDriveTelemetry.verbosity = TelemetryVerbosity.HIGH;
-                try {
+
+        try {
             swerveDrive = new SwerveParser(directory).createSwerveDrive(Constants.MAX_SPEED);
             // Alternative method if you don't want to supply the conversion factor via JSON files.
-//             swerveDrive = new SwerveParser(directory).createSwerveDrive(Constants.MAX_SPEED, new Pose2d(new Translation2d(Meter.of(1),
-//             Meter.of(4)),
-// Rotation2d.fromDegrees(0)));
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        swerveDrive.setHeadingCorrection(false); // Heading correction should only be used while controlling the robot via angle.
-    swerveDrive.setCosineCompensator(false);//!SwerveDriveTelemetry.isSimulation); // Disables cosine compensation for simulations since it causes discrepancies not seen in real life.
-    swerveDrive.setAngularVelocityCompensation(true,
-                                               true,
-                                               0.1); //Correct for skew that gets worse as angular velocity increases. Start with a coefficient of 0.1.
-    swerveDrive.setModuleEncoderAutoSynchronize(false,
-                                                1);
-                                                swerveDrive.setMotorIdleMode(true);
 
+        swerveDrive.setHeadingCorrection(false); // Heading correction should only be used while controlling the robot via angle.
+        swerveDrive.setCosineCompensator(false);//!SwerveDriveTelemetry.isSimulation); // Disables cosine compensation for simulations since it causes discrepancies not seen in real life.
+        swerveDrive.setAngularVelocityCompensation(true, true, 0.1); //Correct for skew that gets worse as angular velocity increases. Start with a coefficient of 0.1.
+        swerveDrive.setModuleEncoderAutoSynchronize(false, 1);
+        swerveDrive.setMotorIdleMode(true);
+
+        setupPathPlanner();
     }
 
     public boolean getNoteAvailable() {
@@ -159,32 +146,12 @@ public class SwerveSubsystem extends SubsystemBase {
     }
 
     /**
-     * Get the path follower with events.
-     *
-     * @param pathName       PathPlanner path name.
-     * @param setOdomToStart Set the odometry position to the start of the path.
-     * @return {@link AutoBuilder#followPath(PathPlannerPath)} path command.
-     */
-    /*
-    public Command getPathCommand(String pathName, boolean setOdomToStart) {
-        // Load the path you want to follow using its name in the GUI
-        PathPlannerPath path = PathPlannerPath.fromPathFile(pathName);
-
-        if (setOdomToStart) {
-            resetOdometry(new Pose2d(path.getPoint(0).position, getHeading()));
-        }
-
-        // Create a path following command using AutoBuilder. This will also trigger event markers.
-        return AutoBuilder.followPath(path);
-    }
-    */
-    
-    /**
      * Get the autonomous command for the robot.
      * @param autoName       Name of the auto file.
      * @param setOdomToStart Set the odometry position to the start of the path.
      * @return {@link PathPlannerAuto} command.
      */
+
     public Command getPPAutoCommand(String autoName, boolean setOdomToStart) {
         if (setOdomToStart) {
             SmartDashboard.putNumber("HeadingFromFile", -1);
@@ -201,6 +168,7 @@ public class SwerveSubsystem extends SubsystemBase {
      * @param driveCfg      SwerveDriveConfiguration for the swerve.
      * @param controllerCfg Swerve Controller.
      */
+
     public SwerveSubsystem(SwerveDriveConfiguration driveCfg, SwerveControllerConfiguration controllerCfg) {      
         Pose2d startingPose = new Pose2d();  
         swerveDrive = new SwerveDrive(driveCfg, controllerCfg, maximumSpeed, startingPose);
@@ -220,6 +188,7 @@ public class SwerveSubsystem extends SubsystemBase {
      *                      relativity.
      * @param fieldRelative Drive mode.  True for field-relative, false for robot-relative.
      */
+    
     public void drive(Translation2d translation, double rotation, boolean fieldRelative) {
         swerveDrive.drive(translation, rotation, fieldRelative,false); // Open loop is disabled since it shouldn't be used most of the time.
     }
@@ -243,12 +212,7 @@ public class SwerveSubsystem extends SubsystemBase {
     }
 
     @Override
-    public void periodic() {
-
-        if(true) {
-            return;
-        }
-        
+    public void periodic() {     
         if (!driverStationReady) {
             driverStationReady = DriverStation.getAlliance().isPresent();
         } else {
@@ -265,26 +229,8 @@ public class SwerveSubsystem extends SubsystemBase {
             //System.out.println(counter);
             counter++;
         }
-        SmartDashboard.putNumber("ROBOT POSE X", getPose().getX());
-        SmartDashboard.putNumber("ROBOT POSE Y", getPose().getY());
-        SmartDashboard.putNumber("Current Pose Angle", getPose().getRotation().getDegrees());
-        aprilTagSystem.periodic(getPose());
-        //System.out.println(pathActive);
-        //System.out.println("Angle: " + bestAngleToApproachNote().getDegrees());
-
-        /** Note Detection Stuff */
-        tpuSystem.periodic();
-        SmartDashboard.putBoolean("CAN PRESS NOTE BUTTON?", noteAvailable);
-        // Be AWARE that xdistanceNote and ydistanceNote MAY BE USED FOR APRIL TAGS
-        Translation2d relativeNoteLocation = tpuSystem.getBestNoteLocation();
-        vectorCalculatedDistanceNote(relativeNoteLocation);
-        SmartDashboard.putNumber("X Distance To Note", relativeNoteLocation.getX());
-        SmartDashboard.putNumber("Y Distance To Note", relativeNoteLocation.getY());
-
-        /** For april tag detection */
-        //SmartDashboard.putNumber("Rotation", swerveDrive.getPose().getRotation().getDegrees());
-        //SmartDashboard.putBoolean("Detected!", hasTargets);
-        //SmartDashboard.putNumber("Yaw", yaw);
+        SmartDashboard.putNumber("RobotX_POSE", updatedPose.getX());
+        SmartDashboard.putNumber("RobotY_POSE", updatedPose.getY());
     }
 
 
@@ -334,7 +280,7 @@ public class SwerveSubsystem extends SubsystemBase {
      * Get the swerve drive kinematics object.
      *
      * @return {@link SwerveDriveKinematics} of the swerve drive.
-     */
+     */ 
     public SwerveDriveKinematics getKinematics() {
         return swerveDrive.kinematics;
     }
@@ -713,7 +659,7 @@ public class SwerveSubsystem extends SubsystemBase {
     }
     */
 
-    /* 
+     
     public PathPlannerPath testpath() {
         List<Waypoint> waypoints = PathPlannerPath.waypointsFromPoses(
             new Pose2d(getPose().getX(), getPose().getY(), getPose().getRotation()),
@@ -731,7 +677,7 @@ public class SwerveSubsystem extends SubsystemBase {
 
         return path;
     }
-    */
+    
 
     public Rotation2d bestAngleToApproachNote() {
         return Rotation2d.fromDegrees(getHeading().getDegrees() + tpuSystem.getBestNoteAngleToApproach());
