@@ -90,26 +90,29 @@ public class AbsoluteDrive extends Command {
 
         Boolean speedCutoff = speedCutoffSup.getAsBoolean();
 
+        SmartDashboard.putNumber("LeftValue", vX.getAsDouble());
+        SmartDashboard.putNumber("RightValue", vY.getAsDouble());
+
         double vXspeed = vX.getAsDouble() * (SwerveSubsystem.isBlueAlliance ? 1 : -1);
         double vYspeed = vY.getAsDouble() * (SwerveSubsystem.isBlueAlliance ? 1 : -1);
 
         ChassisSpeeds desiredSpeeds;
 
-        if (CWSpin.getAsBoolean()) {
-            desiredSpeeds = swerve.getTargetSpeeds(vXspeed, vYspeed, swerve.getHeading().minus(Rotation2d.fromDegrees(20)));
-        } else if (CCWSpin.getAsBoolean()) {
-            desiredSpeeds = swerve.getTargetSpeeds(vXspeed, vYspeed, swerve.getHeading().plus(Rotation2d.fromDegrees(20)));
-        } else {
-            if (Math.abs(headingHorizontal.getAsDouble()) < 0.1 && Math.abs(headingVertical.getAsDouble()) < 0.1) {
-                // prevent from unexpected spinning after auton
-                desiredSpeeds = swerve.getTargetSpeeds(vXspeed, vYspeed, swerve.getHeading());
-            } else {
+        // if (CWSpin.getAsBoolean()) {
+        //     desiredSpeeds = swerve.getTargetSpeeds(vXspeed, vYspeed, swerve.getHeading().minus(Rotation2d.fromDegrees(20)));
+        // } else if (CCWSpin.getAsBoolean()) {
+        //     desiredSpeeds = swerve.getTargetSpeeds(vXspeed, vYspeed, swerve.getHeading().plus(Rotation2d.fromDegrees(20)));
+        // } else {
+        //     if (Math.abs(headingHorizontal.getAsDouble()) < 0.1 && Math.abs(headingVertical.getAsDouble()) < 0.1) {
+        //         // prevent from unexpected spinning after auton
+        //         desiredSpeeds = swerve.getTargetSpeeds(vXspeed, vYspeed, swerve.getHeading());
+            //} else {
                 // Get the desired chassis speeds based on a 2 joystick module.
                 /* CHANGES HAVE BEEN MADE BELOW: DIRECTION OF MOTION IS NOW DEPENDENT ON ALLIANCE COLOUR. IF PHOTONVISION IS BEING USED, THE ROBOT WILL AUTO CORRET ITSELF WHEN APRIL TAG IS DETETED */
                 desiredSpeeds = SwerveSubsystem.isBlueAlliance ? 
                 swerve.getTargetSpeeds(vXspeed, vYspeed, headingHorizontal.getAsDouble(), headingVertical.getAsDouble()) :
                 swerve.getTargetSpeeds(vXspeed, vYspeed, -headingHorizontal.getAsDouble(), -headingVertical.getAsDouble());
-            }
+            //}
 
             // Prevent Movement After Auto
             if (initRotation) {
@@ -132,12 +135,20 @@ public class AbsoluteDrive extends Command {
             translation = SwerveMath.limitVelocity(translation, swerve.getFieldVelocity(), swerve.getPose(),
                     Constants.LOOP_TIME, Constants.ROBOT_MASS, List.of(Constants.CHASSIS),
                     swerve.getSwerveDriveConfiguration());
-            SmartDashboard.putNumber("LimitedTranslation", translation.getX());
-            SmartDashboard.putString("Translation", translation.toString());
+            // SmartDashboard.putNumber("LimitedTranslation", translation.getX());
+            // SmartDashboard.putString("Translation", translation.toString());
 
             // Make the robot move
-            swerve.drive(translation, desiredSpeeds.omegaRadiansPerSecond, true);             
-        }
+            Translation2d MyTranslate = new Translation2d(vXspeed, vYspeed);
+            swerve.drive(MyTranslate, /*desiredSpeeds.omegaRadiansPerSecond*/ 0, false);   
+            SmartDashboard.putNumber("XSpeed", vXspeed);
+            System.out.printf("XSpeed %f\n", vXspeed);
+            SmartDashboard.putNumber("YSpeed", vYspeed);
+            System.out.printf("YSpeed %f\n", vYspeed);
+            SmartDashboard.putNumber("TranslateX", MyTranslate.getX()); 
+            SmartDashboard.putNumber("TranslateY", MyTranslate.getY()); 
+
+        //}
     }
 
     // Called once the command ends or is interrupted.

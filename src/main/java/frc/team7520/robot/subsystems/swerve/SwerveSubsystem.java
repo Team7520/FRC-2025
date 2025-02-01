@@ -7,47 +7,35 @@ package frc.team7520.robot.subsystems.swerve;
 import com.pathplanner.lib.auto.AutoBuilder;
 //import com.pathplanner.lib.commands.FollowPathHolonomic;
 import com.pathplanner.lib.commands.PathPlannerAuto;
-import com.pathplanner.lib.path.ConstraintsZone;
-import com.pathplanner.lib.path.EventMarker;
-import com.pathplanner.lib.path.GoalEndState;
-import com.pathplanner.lib.path.PathConstraints;
-import com.pathplanner.lib.path.PathPlannerPath;
-import com.pathplanner.lib.path.RotationTarget;
+import com.pathplanner.lib.config.PIDConstants;
+import com.pathplanner.lib.config.RobotConfig;
+import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 //import com.pathplanner.lib.util.HolonomicPathFollowerConfig;
 //import com.pathplanner.lib.util.PIDConstants;
 //import com.pathplanner.lib.util.ReplanningConfig;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
-import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.trajectory.Trajectory;
 import edu.wpi.first.math.util.Units;
-import edu.wpi.first.wpilibj.Counter;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.InstantCommand;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.networktables.*;
 import frc.team7520.robot.Constants;
-import frc.team7520.robot.Robot;
-import frc.team7520.robot.RobotContainer;
-import frc.team7520.robot.Constants.IntakeConstants.Position;
 //import frc.team7520.robot.auto.AutoIntake;
 //import frc.team7520.robot.auto.AutoNotePickUp;
 //import frc.team7520.robot.auto.AutoShoot;
 //import frc.team7520.robot.auto.ShootSequence;
 //import frc.team7520.robot.subsystems.intake.IntakeSubsystem;
 import frc.team7520.robot.util.AprilTagSystem;
-import frc.team7520.robot.util.Map;
-import frc.team7520.robot.util.Note;
-import frc.team7520.robot.util.AprilTagSystem;
+import frc.team7520.robot.util.LimelightHelpers;
 import frc.team7520.robot.util.TpuSystem;
 import swervelib.SwerveController;
 import swervelib.SwerveDrive;
@@ -59,14 +47,9 @@ import swervelib.telemetry.SwerveDriveTelemetry;
 import swervelib.telemetry.SwerveDriveTelemetry.TelemetryVerbosity;
 
 import java.io.File;
-import java.sql.Driver;
-import java.util.Arrays;
-import java.util.List;
+import java.util.function.Supplier;
+import static edu.wpi.first.units.Units.Meter;
 
-// to reinstall lib, use https://maven.photonvision.org/repository/internal/org/photonvision/photonlib-json/1.0/photonlib-json-1.0.json
-import org.photonvision.PhotonCamera;
-import org.photonvision.targeting.PhotonPipelineResult;
-import org.photonvision.targeting.PhotonTrackedTarget;
 
 import static frc.team7520.robot.Constants.Telemetry.SWERVE_VERBOSITY;
 
@@ -109,59 +92,28 @@ public class SwerveSubsystem extends SubsystemBase {
     public SwerveSubsystem(File directory) {
         // Angle conversion factor is 360 / (GEAR RATIO * ENCODER RESOLUTION)
         //  The encoder resolution per motor revolution is 1 per motor revolution.
-        double angleConversionFactor = SwerveMath.calculateDegreesPerSteeringRotation(Constants.Swerve.ANGLE_GEAR_RATIO, 1);
-        // Motor conversion factor is (PI * WHEEL DIAMETER IN METERS) / (GEAR RATIO * ENCODER RESOLUTION).
-        //  The encoder resolution per motor revolution is 1 per motor revolution.
-        double driveConversionFactor = SwerveMath.calculateMetersPerRotation(Units.inchesToMeters(4), Constants.Swerve.DRIVE_GEAR_RATIO, 1);
-        System.out.println("\"conversionFactor\": {");
-        System.out.println("\t\"angle\": " + angleConversionFactor + ",");
-        System.out.println("\t\"drive\": " + driveConversionFactor);
-        System.out.println("}");
+        
 
         // Configure the Telemetry before creating the SwerveDrive to avoid unnecessary objects being created.
-        SwerveDriveTelemetry.verbosity = SWERVE_VERBOSITY;
-        try {
-//            swerveDrive = new SwerveParser(directory).createSwerveDrive(maximumSpeed);
+        SwerveDriveTelemetry.verbosity = TelemetryVerbosity.HIGH;
+                try {
+            swerveDrive = new SwerveParser(directory).createSwerveDrive(Constants.MAX_SPEED);
             // Alternative method if you don't want to supply the conversion factor via JSON files.
-            swerveDrive = new SwerveParser(directory).createSwerveDrive(maximumSpeed, angleConversionFactor, driveConversionFactor);
+//             swerveDrive = new SwerveParser(directory).createSwerveDrive(Constants.MAX_SPEED, new Pose2d(new Translation2d(Meter.of(1),
+//             Meter.of(4)),
+// Rotation2d.fromDegrees(0)));
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
         swerveDrive.setHeadingCorrection(false); // Heading correction should only be used while controlling the robot via angle.
+    swerveDrive.setCosineCompensator(false);//!SwerveDriveTelemetry.isSimulation); // Disables cosine compensation for simulations since it causes discrepancies not seen in real life.
+    swerveDrive.setAngularVelocityCompensation(true,
+                                               true,
+                                               0.1); //Correct for skew that gets worse as angular velocity increases. Start with a coefficient of 0.1.
+    swerveDrive.setModuleEncoderAutoSynchronize(false,
+                                                1);
+                                                swerveDrive.setMotorIdleMode(true);
 
-        swerveDrive.setMotorIdleMode(true);
-
-        //setupPathPlanner();
-    }
-
-    public SwerveSubsystem(File directory, StringTopic topic) {
-        // Angle conversion factor is 360 / (GEAR RATIO * ENCODER RESOLUTION)
-        //  The encoder resolution per motor revolution is 1 per motor revolution.
-        double angleConversionFactor = SwerveMath.calculateDegreesPerSteeringRotation(Constants.Swerve.ANGLE_GEAR_RATIO, 1);
-        // Motor conversion factor is (PI * WHEEL DIAMETER IN METERS) / (GEAR RATIO * ENCODER RESOLUTION).
-        //  The encoder resolution per motor revolution is 1 per motor revolution.
-        double driveConversionFactor = SwerveMath.calculateMetersPerRotation(Units.inchesToMeters(4), Constants.Swerve.DRIVE_GEAR_RATIO, 1);
-        System.out.println("\"conversionFactor\": {");
-        System.out.println("\t\"angle\": " + angleConversionFactor + ",");
-        System.out.println("\t\"drive\": " + driveConversionFactor);
-        System.out.println("}");
-
-        tpuSystem = new TpuSystem(topic);
-
-        // Configure the Telemetry before creating the SwerveDrive to avoid unnecessary objects being created.
-        SwerveDriveTelemetry.verbosity = SWERVE_VERBOSITY;
-        try {
-//            swerveDrive = new SwerveParser(directory).createSwerveDrive(maximumSpeed);
-            // Alternative method if you don't want to supply the conversion factor via JSON files.
-            swerveDrive = new SwerveParser(directory).createSwerveDrive(maximumSpeed, angleConversionFactor, driveConversionFactor);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-        swerveDrive.setHeadingCorrection(false); // Heading correction should only be used while controlling the robot via angle.
-
-        swerveDrive.setMotorIdleMode(true);
-
-        //setupPathPlanner();
     }
 
     public boolean getNoteAvailable() {
@@ -172,39 +124,39 @@ public class SwerveSubsystem extends SubsystemBase {
      * Setup AutoBuilder for PathPlanner.
      */
 
-     /*
+     
     public void setupPathPlanner() {
-        AutoBuilder.configureHolonomic(
+        RobotConfig config;
+        try{
+            config = RobotConfig.fromGUISettings();   
+            AutoBuilder.configure(
                 this::getPose, // Robot pose supplier
                 this::resetOdometry, // Method to reset odometry (will be called if your auto has a starting pose)
                 this::getRobotVelocity, // ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
-                this::setChassisSpeeds, // Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds
-                new HolonomicPathFollowerConfig( // HolonomicPathFollowerConfig, this should likely live in your Constants class
-                        new PIDConstants(3.75, 0.0, 0.0),
-                        // Translation PID constants
-                        new PIDConstants(swerveDrive.swerveController.config.headingPIDF.p,
-                                swerveDrive.swerveController.config.headingPIDF.i,
-                                swerveDrive.swerveController.config.headingPIDF.d),
-                        // Rotation PID constants
-                        4.5,
-                        // Max module speed, in m/s
-                        swerveDrive.swerveDriveConfiguration.getDriveBaseRadiusMeters(),
-                        // Drive base radius in meters. Distance from robot center to furthest module.
-                        new ReplanningConfig()
-                        // Default path replanning config. See the API for the options here
+                (speeds, feedforwards) -> setChassisSpeeds(speeds), // Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds. Also optionally outputs individual module feedforwards
+                new PPHolonomicDriveController( // PPHolonomicController is the built in path following controller for holonomic drive trains
+                        new PIDConstants(5.0, 0.0, 0.0), // Translation PID constants
+                        new PIDConstants(5.0, 0.0, 0.0) // Rotation PID constants
                 ),
+                config, // The robot configuration
                 () -> {
-                    // Boolean supplier that controls when the path will be mirrored for the red alliance
-                    // This will flip the path being followed to the red side of the field.
-                    // THE ORIGIN WILL REMAIN ON THE BLUE SIDE
-                    var alliance = DriverStation.getAlliance();
-                    return alliance.isPresent() ? alliance.get() == DriverStation.Alliance.Red : false;
+                // Boolean supplier that controls when the path will be mirrored for the red alliance
+                // This will flip the path being followed to the red side of the field.
+                // THE ORIGIN WILL REMAIN ON THE BLUE SIDE
+
+                var alliance = DriverStation.getAlliance();
+                if (alliance.isPresent()) {
+                    return alliance.get() == DriverStation.Alliance.Red;
+                }
+                return false;
                 },
                 this // Reference to this subsystem to set requirements
-        );
+            );
+        } catch (Exception e) {
+            // Handle exception as needed
+            e.printStackTrace();
+        }
     }
-*/
-    
 
     /**
      * Get the path follower with events.
@@ -292,23 +244,26 @@ public class SwerveSubsystem extends SubsystemBase {
 
     @Override
     public void periodic() {
+
+        if(true) {
+            return;
+        }
+        
         if (!driverStationReady) {
             driverStationReady = DriverStation.getAlliance().isPresent();
         } else {
             isBlueAlliance = (DriverStation.getAlliance().get() == DriverStation.Alliance.Blue);
         }
         
-        /** Photonvision stuff */
-        if (aprilTagSystem.initiateAprilTagLayout()) {
-            Pose2d updatedPose = aprilTagSystem.getCurrentRobotFieldPose();
-            if (updatedPose != null && counter > 0) {
-                counter = 0;
-                resetOdometry(updatedPose);
-                //SmartDashboard.putNumber("Estimated Pose Angle",updatedPose.getRotation().getDegrees());
-            } else {
-                //System.out.println(counter);
-                counter++;
-            }
+        /** Pose Update */
+        Pose2d updatedPose = LimelightHelpers.getBotPose2d_wpiBlue("");
+        if (updatedPose != null && counter > 0) {
+            counter = 0;
+            resetOdometry(updatedPose);
+            //SmartDashboard.putNumber("Estimated Pose Angle",updatedPose.getRotation().getDegrees());
+        } else {
+            //System.out.println(counter);
+            counter++;
         }
         SmartDashboard.putNumber("ROBOT POSE X", getPose().getX());
         SmartDashboard.putNumber("ROBOT POSE Y", getPose().getY());
@@ -561,6 +516,16 @@ public class SwerveSubsystem extends SubsystemBase {
         return swerveDrive.getPitch();
     }
 
+    public SwerveDrive getSwerveDrive() {
+        return swerveDrive;
+    }
+
+    public Command driveFieldOriented(Supplier<ChassisSpeeds> velocity) {
+        return run(() -> {
+            swerveDrive.driveFieldOriented(velocity.get());
+        });
+    }
+
     /**
      * Add a vision reading for updating odometry. This method is kind of buggy and makes the robot lose its heading for some reason...?
      */
@@ -744,6 +709,26 @@ public class SwerveSubsystem extends SubsystemBase {
         // Prevent the path from being flipped if the coordinates are already correct
         path.preventFlipping =true;
         pathActive = false;
+        return path;
+    }
+    */
+
+    /* 
+    public PathPlannerPath testpath() {
+        List<Waypoint> waypoints = PathPlannerPath.waypointsFromPoses(
+            new Pose2d(getPose().getX(), getPose().getY(), getPose().getRotation()),
+            new Pose2d(4.073906, 3.306318, Rotation2d.fromDegrees(240))
+        );
+
+        PathConstraints constraints = new PathConstraints(1, 1, 2 * Math.PI, 2 * Math.PI); // The constraints for this path.
+
+        PathPlannerPath path = new PathPlannerPath(
+            waypoints,
+            constraints,
+            null, // The ideal starting state, this is only relevant for pre-planned paths, so can be null for on-the-fly paths.
+            new GoalEndState(0.0, Rotation2d.fromDegrees(240)) // Goal end state. You can set a holonomic rotation here. If using a differential drivetrain, the rotation will have no effect.
+        );
+
         return path;
     }
     */
