@@ -33,6 +33,7 @@ import swervelib.SwerveInputStream;
 
 import java.io.File;
 
+import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.commands.PathPlannerAuto;
 
 
@@ -168,13 +169,17 @@ public class RobotContainer {
      */
     private void configureBindings() {
       new JoystickButton(driverController, XboxController.Button.kA.value)
-               .onTrue(new InstantCommand(drivebase::zeroGyro));
+               .onTrue(Commands.runOnce(drivebase::zeroGyro));
         // X/Lock wheels
       new JoystickButton(driverController, XboxController.Button.kB.value)
                .whileTrue(new RepeatCommand(new InstantCommand(drivebase::lock)));
-        
-      new JoystickButton(driverController, XboxController.Button.kX.value)
-               .whileTrue(new InstantCommand(drivebase::testpath));
+            
+      // Disabled for Tryouts //
+      // new JoystickButton(driverController, XboxController.Button.kX.value)
+      //          .onTrue(new InstantCommand(() -> {
+      //                   var cmd = AutoBuilder.followPath(drivebase.testpath());
+      //                   cmd.schedule();}
+      //                   ));
 
       Command driveFieldOrientedAnglularVelocity = drivebase.driveFieldOriented(driveAngularVelocity);
       Command driveFieldOrientedDirectAngleKeyboard = drivebase.driveFieldOriented(driveDirectAngleKeyboard);

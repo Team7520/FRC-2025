@@ -101,6 +101,15 @@ public class SwerveSubsystem extends SubsystemBase {
         swerveDrive.setMotorIdleMode(true);
 
         setupPathPlanner();
+
+        LimelightHelpers.setCameraPose_RobotSpace("", 
+            0,    // Forward offset (meters)
+            0,    // Side offset (meters)
+            0,    // Height offset (meters)
+            0,    // Roll (degrees)
+            0,   // Pitch (degrees)
+            0     // Yaw (degrees)
+        );
     }
 
     public boolean getNoteAvailable() {
@@ -144,6 +153,8 @@ public class SwerveSubsystem extends SubsystemBase {
             e.printStackTrace();
         }
     }
+
+    
 
     /**
      * Get the autonomous command for the robot.
@@ -213,7 +224,7 @@ public class SwerveSubsystem extends SubsystemBase {
 
     @Override
     public void periodic() {     
-        if (!driverStationReady) {
+        if (!driverStationReady) {  
             driverStationReady = DriverStation.getAlliance().isPresent();
         } else {
             isBlueAlliance = (DriverStation.getAlliance().get() == DriverStation.Alliance.Blue);
@@ -661,20 +672,22 @@ public class SwerveSubsystem extends SubsystemBase {
 
      
     public PathPlannerPath testpath() {
-        List<Waypoint> waypoints = PathPlannerPath.waypointsFromPoses(
+        List<Waypoint> wayPoints = PathPlannerPath.waypointsFromPoses(
             new Pose2d(getPose().getX(), getPose().getY(), getPose().getRotation()),
-            new Pose2d(4.073906, 3.306318, Rotation2d.fromDegrees(240))
+            new Pose2d(11.9, 4.0259, Rotation2d.fromDegrees(0))
+            // //ID 10's ABS is 12.227306, 4.0259
         );
 
-        PathConstraints constraints = new PathConstraints(1, 1, 2 * Math.PI, 2 * Math.PI); // The constraints for this path.
+        PathConstraints constraints = new PathConstraints(0.5, 1, 2 * Math.PI, 2 * Math.PI); // The constraints for this path.
 
         PathPlannerPath path = new PathPlannerPath(
-            waypoints,
+            wayPoints,
             constraints,
             null, // The ideal starting state, this is only relevant for pre-planned paths, so can be null for on-the-fly paths.
-            new GoalEndState(0.0, Rotation2d.fromDegrees(240)) // Goal end state. You can set a holonomic rotation here. If using a differential drivetrain, the rotation will have no effect.
+            new GoalEndState(0.0, Rotation2d.fromDegrees(0)) // Goal end state. You can set a holonomic rotation here. If using a differential drivetrain, the rotation will have no effect.
         );
-
+        
+        path.preventFlipping =true;
         return path;
     }
     
