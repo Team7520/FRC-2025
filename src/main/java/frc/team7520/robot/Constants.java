@@ -35,6 +35,19 @@ public final class Constants {
         public static final double MAX_ACCELERATION = 2;
     }
 
+    public static final class TagCoods {
+        public TagCoods(double leftX, double leftY, double rightX, double rightY) {
+            LeftX = leftX;
+            LeftY = leftY;
+            RightX = rightX;
+            RightY = rightY;
+        }
+        public double LeftX = -1;
+        public double LeftY = -1;
+        public double RightX = -1;
+        public double RightY = -1;
+    }
+
     public static final class Drivebase {
 
         // Hold time on motor brakes when disabled

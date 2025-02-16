@@ -29,6 +29,7 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.team7520.robot.Constants;
+import frc.team7520.robot.Constants.TagCoods;
 import frc.team7520.robot.util.AprilTagSystem;
 import frc.team7520.robot.util.LimelightHelpers;
 import frc.team7520.robot.util.TpuSystem;
@@ -41,6 +42,7 @@ import swervelib.telemetry.SwerveDriveTelemetry;
 import swervelib.telemetry.SwerveDriveTelemetry.TelemetryVerbosity;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -74,6 +76,7 @@ public class SwerveSubsystem extends SubsystemBase {
     private boolean driverStationReady = false;
 
     public static boolean pathActive = false;
+    public static ArrayList<TagCoods> TagArray = new ArrayList<>();
 
     /**
      * Initialize {@link SwerveDrive} with the directory provided.
@@ -86,6 +89,53 @@ public class SwerveSubsystem extends SubsystemBase {
         //  The encoder resolution per motor revolution is 1 per motor revolution.    
         // Configure the Telemetry before creating the SwerveDrive to avoid unnecessary objects being created.
         SwerveDriveTelemetry.verbosity = TelemetryVerbosity.HIGH;
+
+        //ID 0 Apriltag
+        TagArray.add(new TagCoods(-1, -1, -1, -1));  
+        //ID 1 Apriltag
+        TagArray.add(new TagCoods(-1, -1, -1, -1));
+        //ID 2 Apriltag
+        TagArray.add(new TagCoods(-1, -1, -1, -1));
+        //ID 3 Apriltag
+        TagArray.add(new TagCoods(-1, -1, -1, -1));
+        //ID 4 Apriltag
+        TagArray.add(new TagCoods(-1, -1, -1, -1));
+        //ID 5 Apriltag
+        TagArray.add(new TagCoods(-1, -1, -1, -1));
+        //ID 6 Apriltag
+        TagArray.add(new TagCoods(-1, -1, -1, -1));
+        //ID 7 Apriltag
+        TagArray.add(new TagCoods(-1, -1, -1, -1));
+        //ID 8 Apriltag
+        TagArray.add(new TagCoods(-1, -1, -1, -1));
+        //ID 9 Apriltag
+        TagArray.add(new TagCoods(-1, -1, -1, -1));
+        //ID 10 Apriltag
+        TagArray.add(new TagCoods(11.948, 4.09, 11.948, 3.98));
+        //ID 11 Apriltag
+        TagArray.add(new TagCoods(-1, -1, -1, -1));
+        //ID 12 Apriltag
+        TagArray.add(new TagCoods(-1, -1, -1, -1));
+        //ID 13 Apriltag
+        TagArray.add(new TagCoods(-1, -1, -1, -1));
+        //ID 14 Apriltag
+        TagArray.add(new TagCoods(-1, -1, -1, -1));
+        //ID 15 Apriltag
+        TagArray.add(new TagCoods(-1, -1, -1, -1));
+        //ID 16 Apriltag
+        TagArray.add(new TagCoods(-1, -1, -1, -1));
+        //ID 17 Apriltag
+        TagArray.add(new TagCoods(-1, -1, -1, -1));
+        //ID 18 Apriltag
+        TagArray.add(new TagCoods(-1, -1, -1, -1));
+        //ID 19 Apriltag
+        TagArray.add(new TagCoods(-1, -1, -1, -1));
+        //ID 20 Apriltag
+        TagArray.add(new TagCoods(-1, -1, -1, -1));
+        //ID 21 Apriltag
+        TagArray.add(new TagCoods(-1, -1, -1, -1));
+        //ID 22 Apriltag
+        TagArray.add(new TagCoods(-1, -1, -1, -1));
 
         try {
             swerveDrive = new SwerveParser(directory).createSwerveDrive(Constants.MAX_SPEED);
@@ -232,16 +282,16 @@ public class SwerveSubsystem extends SubsystemBase {
         
         /** Pose Update */
         Pose2d updatedPose = LimelightHelpers.getBotPose2d_wpiBlue("");
-        if (updatedPose != null && counter > 0) {
+        if (updatedPose.getX() != 0.0 && updatedPose.getY() != 0.0 && updatedPose.getRotation().getDegrees() != 0.0 && counter > 0) {
             counter = 0;
             resetOdometry(updatedPose);
-            //SmartDashboard.putNumber("Estimated Pose Angle",updatedPose.getRotation().getDegrees());
+            //System.out.printf("Updated X:%f Updated Y:%f, Updated Rotate:%f\n", updatedPose.getX(), updatedPose.getY(), updatedPose.getRotation().getDegrees());
         } else {
-            //System.out.println(counter);
             counter++;
+            //System.out.println("ran in null");
         }
-        SmartDashboard.putNumber("RobotX_POSE", updatedPose.getX());
-        SmartDashboard.putNumber("RobotY_POSE", updatedPose.getY());
+        SmartDashboard.putNumber("RobotX_POSE", getPose().getX());
+        SmartDashboard.putNumber("RobotY_POSE", getPose().getY());
     }
 
 
@@ -668,17 +718,41 @@ public class SwerveSubsystem extends SubsystemBase {
         pathActive = false;
         return path;
     }
-    */
+    */  
 
      
-    public PathPlannerPath testpath() {
+    public PathPlannerPath GoLeft() {
         List<Waypoint> wayPoints = PathPlannerPath.waypointsFromPoses(
             new Pose2d(getPose().getX(), getPose().getY(), getPose().getRotation()),
-            new Pose2d(11.9, 4.0259, Rotation2d.fromDegrees(0))
-            // //ID 10's ABS is 12.227306, 4.0259
+            new Pose2d(TagArray.get(10).LeftX, TagArray.get(10).LeftY, Rotation2d.fromDegrees(0))
+            // //ID 10's Right is (11.948, 3.98)
+            // Left is (11.948, 4.09)
+            // ABS is 12.227306, 4.0259
         );
 
-        PathConstraints constraints = new PathConstraints(0.5, 1, 2 * Math.PI, 2 * Math.PI); // The constraints for this path.
+        PathConstraints constraints = new PathConstraints(0.15, 0.15, 2 * Math.PI, 2 * Math.PI); // The constraints for this path.
+
+        PathPlannerPath path = new PathPlannerPath(
+            wayPoints,
+            constraints,
+            null, // The ideal starting state, this is only relevant for pre-planned paths, so can be null for on-the-fly paths.
+            new GoalEndState(0.0, Rotation2d.fromDegrees(0)) // Goal end state. You can set a holonomic rotation here. If using a differential drivetrain, the rotation will have no effect.
+        );
+        
+        path.preventFlipping =true;
+        return path;
+    }
+
+    public PathPlannerPath GoRight() {
+        List<Waypoint> wayPoints = PathPlannerPath.waypointsFromPoses(
+            new Pose2d(getPose().getX(), getPose().getY(), getPose().getRotation()),
+            new Pose2d(11.948, 3.98, Rotation2d.fromDegrees(0))
+            // //ID 10's Right is (11.948, 3.98)
+            // Left is (11.948, 4.09)
+            // ABS is 12.227306, 4.0259
+        );
+
+        PathConstraints constraints = new PathConstraints(0.15, 0.15, 2 * Math.PI, 2 * Math.PI); // The constraints for this path.
 
         PathPlannerPath path = new PathPlannerPath(
             wayPoints,

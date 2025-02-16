@@ -173,13 +173,18 @@ public class RobotContainer {
         // X/Lock wheels
       new JoystickButton(driverController, XboxController.Button.kB.value)
                .whileTrue(new RepeatCommand(new InstantCommand(drivebase::lock)));
-            
-      // Disabled for Tryouts //
-      // new JoystickButton(driverController, XboxController.Button.kX.value)
-      //          .onTrue(new InstantCommand(() -> {
-      //                   var cmd = AutoBuilder.followPath(drivebase.testpath());
-      //                   cmd.schedule();}
-      //                   ));
+      
+      new Trigger(() -> driverController.getPOV() == 90)
+            .onTrue(new InstantCommand(() -> {
+                  var cmd = AutoBuilder.followPath(drivebase.GoRight());
+                  cmd.schedule();}
+            ));
+      
+      new Trigger(() -> driverController.getPOV() == 270)
+            .onTrue(new InstantCommand(() -> {
+                  var cmd = AutoBuilder.followPath(drivebase.GoLeft());
+                  cmd.schedule();}
+            ));
 
       Command driveFieldOrientedAnglularVelocity = drivebase.driveFieldOriented(driveAngularVelocity);
       Command driveFieldOrientedDirectAngleKeyboard = drivebase.driveFieldOriented(driveDirectAngleKeyboard);
